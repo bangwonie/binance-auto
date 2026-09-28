@@ -46,11 +46,39 @@ function connectMarket() {
   connection.addEventListener('error', () => connection.close());
 }
 function renderBook(id, rows, kind) { const element = $(id); element.replaceChildren(); const shown = (kind === 'ask' ? rows.slice(0, 7).reverse() : rows.slice(0, 7)); const max = Math.max(...shown.map(row => Number(row[1])), 0.00001); for (const row of shown) { const div = document.createElement('div'); div.className = `book-row ${kind}`; const bar = document.createElement('i'); bar.style.width = `${Math.min(100, Number(row[1]) / max * 100)}%`; const price = document.createElement('span'); price.textContent = fmt(row[0]); const qty = document.createElement('span'); qty.className = 'qty'; qty.textContent = fmt(row[1], 5); div.append(bar, price, qty); element.append(div); } }
+function renderDecision() {
+  const map = dashboard.tradeMap;
+  if (!map) return;
+  const verdict = map.verdict;
+  const node = $('mapVerdict');
+  node.textContent = verdict === 'LONG' ? 'LONG' : verdict === 'SHORT' ? 'SHORT' : 'ĐỨNG NGOÀI';
+  node.className = verdict.toLowerCase();
+  $('mapScore').textContent = (map.score > 0 ? '+' : '') + map.score + '/' + map.maxScore;
+  $('mapReason').textContent = map.confidence + '% đồng thuận · ' + map.model;
+  $('mapEntry').textContent = verdict === 'WAIT' ? 'Chưa có' : fmt(map.entryLow) + ' – ' + fmt(map.entryHigh);
+  $('mapStop').textContent = map.stop ? fmt(map.stop) : '—';
+  $('mapTarget').textContent = map.target ? fmt(map.target) : '—';
+  $('mapAtr').textContent = fmt(map.atr) + ' · ' + fmt(map.atrPct) + '%';
+  $('longVotes').textContent = map.longVotes;
+  $('shortVotes').textContent = map.shortVotes;
+  $('neutralVotes').textContent = map.neutralVotes;
+  $('engineAge').textContent = Math.max(0, Math.round((Date.now() - map.generatedAt) / 1000)) + 's';
+  const grid = $('factorMap'); grid.replaceChildren();
+  for (const item of map.factors) {
+    const card = document.createElement('article');
+    card.className = 'factor ' + (item.vote > 0 ? 'long' : item.vote < 0 ? 'short' : 'neutral');
+    const head = document.createElement('div'), label = document.createElement('span'), vote = document.createElement('b');
+    label.textContent = item.label; vote.textContent = item.vote > 0 ? 'LONG' : item.vote < 0 ? 'SHORT' : 'WAIT'; head.append(label, vote);
+    const value = document.createElement('strong'); value.textContent = fmt(item.value, Math.abs(item.value) < 1 ? 4 : 2) + item.unit;
+    const note = document.createElement('small'); note.textContent = item.detail;
+    card.append(head, value, note); grid.append(card);
+  }
+}
 function render() {
   const points = dashboard.points, last = points.at(-1), reference = points.at(-25);
   const price = currentPrice(); const streamedChange = liveTicker && Date.now() - lastTickerAt < 15000 ? Number(liveTicker.P) : NaN; const change = Number.isFinite(streamedChange) ? streamedChange : reference ? (price / reference.close - 1) * 100 : 0;
   $('price').textContent = `$${fmt(price)}`; $('chartPrice').textContent = fmt(liveCandle?.close || last.close); $('chartRange').textContent = liveCandle ? '5m · gồm nến đang chạy' : '5m · 120 nến đã đóng'; $('change').textContent = `${change >= 0 ? '+' : ''}${fmt(change)}%`; $('change').style.color = change >= 0 ? '#64d6ae' : '#ed8998';
-  const previous = points.at(-2), signal = previous.sma20 <= previous.sma50 && last.sma20 > last.sma50 ? 'BUY' : previous.sma20 >= previous.sma50 && last.sma20 < last.sma50 ? 'SELL' : 'HOLD';
+  const signal = dashboard.tradeMap?.verdict === 'LONG' ? 'BUY' : dashboard.tradeMap?.verdict === 'SHORT' ? 'SELL' : 'HOLD';
   $('signal').textContent = signal; $('signalDetail').textContent = signal === 'HOLD' ? 'Chưa có giao cắt' : signal === 'BUY' ? (mode === 'futures_demo' ? 'Mở Long' : 'Mua BTC') : (mode === 'futures_demo' ? 'Đóng Long' : 'Bán BTC'); $('signalDetail').style.color = signal === 'BUY' ? '#64d6ae' : signal === 'SELL' ? '#ed8998' : '#e8edf5';
   $('sma20').textContent = fmt(last.sma20); $('sma50').textContent = fmt(last.sma50);
   const usdt = mode === 'paper' ? Number(dashboard.state.paper_usdt) : dashboard.account ? Number(['futures_demo', 'real'].includes(mode) ? dashboard.account.available : dashboard.account.usdt) : NaN;
@@ -64,6 +92,7 @@ function render() {
   else { $('pnl').textContent = '—'; $('roi').textContent = '—'; $('pnlNote').textContent = mode === 'real' ? 'Chưa kết nối tài khoản Real' : 'Chưa có vốn gốc Testnet'; }
   $('allocation').textContent = mode === 'real' ? dashboard.account ? `${fmt(Number(btc) * price)} USDT` : '—' : mode === 'futures_demo' ? `${fmt(dashboard.account?.unrealizedPnl || 0)} USDT` : valid && equity > 0 ? `${fmt(btc * price / equity * 100, 0)}% / ${fmt(usdt / equity * 100, 0)}%` : '—';
   $('chartStart').textContent = time(points[0].time); $('chartEnd').textContent = time(liveCandle?.time || last.time);
+  renderDecision();
   renderBook('asks', dashboard.depth.asks, 'ask'); renderBook('bids', dashboard.depth.bids, 'bid'); const bestBid = Number(dashboard.bestBook?.bid || dashboard.depth.bids?.[0]?.[0]), bestAsk = Number(dashboard.bestBook?.ask || dashboard.depth.asks?.[0]?.[0]); $('midPrice').textContent = fmt((bestBid + bestAsk) / 2);
   const history = dashboard.state.history || []; $('activityCount').textContent = `${history.length} sự kiện`; const tbody = $('historyBody'); tbody.replaceChildren();
   if (!history.length) { const tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 6; td.className = 'empty'; td.textContent = mode === 'real' ? 'Lệnh Real mới sẽ xuất hiện khi kết nối tài khoản.' : 'Bot chưa ghi nhận giao dịch hoặc tín hiệu mới.'; tr.append(td); tbody.append(tr); }

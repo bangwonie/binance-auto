@@ -51,3 +51,7 @@ The dashboard streams public price, order book, and current candle data over Web
 
 `state-paper.json` and `state-testnet.json` track the last processed candle and history. Before a Testnet order is submitted, the bot saves a pending intent. If the network fails after submission, it queries that client order ID on the next run. If status still cannot be confirmed, automation reports an error and sends no new order. Reconcile the order in Spot Testnet before changing the pending state. The dashboard cannot place or retry orders.
 # binance-auto
+
+## Consensus Trade Map v1
+
+The M5 decision engine scores ten observable conditions: SMA trend, RSI, MACD, three-candle momentum, volume, ATR regime, order-book imbalance, funding, open-interest change, and top-trader position ratio. A Long or Short needs at least a 4-point total score and matching technical confirmation; otherwise the engine returns WAIT. Futures Demo executes both directions in one-way mode with isolated 1x leverage, a 60 USDT notional cap, ATR-based stop distance, and a 2R target. Demo stop/target checks are process-driven every minute, so they are not exchange-native protection if the local server is offline. Real trading retains its stricter guarded implementation until the two-way execution path receives separate live validation.

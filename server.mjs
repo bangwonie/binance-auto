@@ -20,6 +20,7 @@ const automation = { mode: autoMode, status: 'starting', socket: 'connecting', l
 let realRunning = false;
 const realTradingEnabled = process.env.REAL_TRADING_ENABLED === '1';
 const realAutomation = { mode: 'real', status: realTradingEnabled ? 'starting' : 'monitoring', socket: 'connecting', lastRun: null, lastTrigger: null, lastResult: realTradingEnabled ? '' : 'Theo dõi tài khoản Real; đặt lệnh chưa bật.', lastError: '', nextCheck: null, tradingEnabled: realTradingEnabled };
+const mapCache = new Map();
 
 function json(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
@@ -92,6 +93,24 @@ async function baseline(account, price) {
   return value;
 }
 
+async function tradeMap(mode) {
+  const cached = mapCache.get(mode);
+  if (cached && Date.now() - cached.time < 15000) return cached.value;
+  const value = await new Promise((resolve, reject) => {
+    const child = spawn(process.env.PYTHON || 'python', [path.join(root, 'strategy_engine.py'), '--mode', mode === 'real' ? 'real' : 'futures_demo'], { cwd: root, windowsHide: true });
+    let output = '', error = '';
+    const timer = setTimeout(() => child.kill(), 25000);
+    child.stdout.on('data', chunk => { output += chunk; });
+    child.stderr.on('data', chunk => { error += chunk; });
+    child.on('close', code => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error(error || 'Decision engine failed'));
+      try { resolve(JSON.parse(output)); } catch { reject(new Error('Decision engine returned invalid JSON')); }
+    });
+  });
+  mapCache.set(mode, { time: Date.now(), value });
+  return value;
+}
 function runBot(mode) {
   return new Promise((resolve, reject) => {
     const args = mode === 'real' ? [path.join(root, 'real_bot.py')] : mode === 'futures_demo' ? [path.join(root, 'futures_bot.py')] : [path.join(root, 'bot.py'), '--mode', mode];
@@ -225,16 +244,17 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/dashboard') {
       const mode = url.searchParams.get('mode') === 'real' ? 'real' : autoMode;
       const apiPrefix = mode === 'real' ? '/fapi/v1' : prefix;
-      const [points, liveBar, currentState, account, depth] = await Promise.all([
+      const [points, liveBar, currentState, account, depth, decision] = await Promise.all([
         market(mode), currentCandle(mode),
         state(mode),
         mode === 'real' ? realMonitor.account : mode === 'paper' ? null : testnetBalances(),
         exchangeGet(`${apiPrefix}/depth?symbol=BTCUSDT&limit=10`, mode),
+        tradeMap(mode),
       ]);
       const price = (Number(depth.bids?.[0]?.[0]) + Number(depth.asks?.[0]?.[0])) / 2 || points.at(-1)?.close;
       const startingValue = mode !== 'paper' && mode !== 'real' ? await baseline(account, price) : null;
       const modeAutomation = mode === 'real' ? { ...realAutomation, socket: realTradingEnabled ? realAutomation.socket : realMonitor.status.connected ? 'connected' : 'disconnected', lastRun: realTradingEnabled ? realAutomation.lastRun : realMonitor.status.accountAt, lastError: realAutomation.lastError || realMonitor.status.error } : automation;
-      json(res, 200, { mode, points, currentCandle: liveBar, state: currentState, account, depth, baseline: startingValue, automation: modeAutomation, accountStream: realMonitor.status, testnetReady: !!(process.env.BINANCE_TESTNET_API_KEY && process.env.BINANCE_TESTNET_API_SECRET), running: mode === 'real' ? realRunning : running, fetchedAt: Date.now() });
+      json(res, 200, { mode, points, currentCandle: liveBar, state: currentState, account, depth, tradeMap: decision, baseline: startingValue, automation: modeAutomation, accountStream: realMonitor.status, testnetReady: !!(process.env.BINANCE_TESTNET_API_KEY && process.env.BINANCE_TESTNET_API_SECRET), running: mode === 'real' ? realRunning : running, fetchedAt: Date.now() });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/automation') return json(res, 200, automation);
