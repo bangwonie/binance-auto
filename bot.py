@@ -57,7 +57,7 @@ def save_state(mode, state):
 
 
 def signal():
-    candles = request("GET", "/api/v3/klines", {"symbol": SYMBOL, "interval": "1h", "limit": 52})
+    candles = request("GET", "/api/v3/klines", {"symbol": SYMBOL, "interval": "5m", "limit": 52})
     closed = candles[:-1]
     if len(closed) < 51:
         raise RuntimeError("Not enough closed candles")

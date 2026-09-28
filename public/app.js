@@ -11,7 +11,7 @@ function setFeed(state) { const dot = $('feedDot'); dot.classList.toggle('feed-w
 function scheduleRender() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; if (dashboard) render(); }, 250); }
 function connectMarket() {
   clearTimeout(reconnectTimer); setFeed('wait');
-  const streams = mode === 'real' ? 'btcusdt@aggTrade/btcusdt@ticker/btcusdt@bookTicker/btcusdt@depth10@100ms/btcusdt@kline_1h' : 'btcusdt@ticker/btcusdt@depth10@100ms/btcusdt@kline_1h';
+  const streams = mode === 'real' ? 'btcusdt@aggTrade/btcusdt@ticker/btcusdt@bookTicker/btcusdt@depth10@100ms/btcusdt@kline_5m' : 'btcusdt@ticker/btcusdt@depth10@100ms/btcusdt@kline_5m';
   const streamHost = mode === 'real' ? 'wss://fstream.binance.com' : mode === 'futures_demo' ? 'wss://fstream.binancefuture.com' : 'wss://stream.testnet.binance.vision';
   const connection = new WebSocket(`${streamHost}/stream?streams=${streams}`);
   socket = connection;
@@ -26,7 +26,7 @@ function connectMarket() {
       dashboard.bestBook = { bid: item.b, ask: item.a };
       const price = (Number(item.b) + Number(item.a)) / 2;
       if (mode === 'real' && Number.isFinite(price)) {
-        const barTime = Math.floor(Date.now() / 3600000) * 3600000;
+        const barTime = Math.floor(Date.now() / 300000) * 300000;
         if (!liveCandle || liveCandle.time !== barTime) liveCandle = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
         else liveCandle = { ...liveCandle, high: Math.max(Number(liveCandle.high || price), price), low: Math.min(Number(liveCandle.low || price), price), close: price };
       }
@@ -36,7 +36,7 @@ function connectMarket() {
       const asks = item.asks || item.a;
       if (bids && asks) dashboard.depth = { bids, asks };
     }
-    else if (packet.stream.endsWith('@kline_1h') && item.k) {
+    else if (packet.stream.endsWith('@kline_5m') && item.k) {
       if (item.k.x) { liveCandle = null; load(); }
       else liveCandle = { time: Number(item.k.t), close: Number(item.k.c) };
     }
@@ -49,7 +49,7 @@ function renderBook(id, rows, kind) { const element = $(id); element.replaceChil
 function render() {
   const points = dashboard.points, last = points.at(-1), reference = points.at(-25);
   const price = currentPrice(); const streamedChange = liveTicker && Date.now() - lastTickerAt < 15000 ? Number(liveTicker.P) : NaN; const change = Number.isFinite(streamedChange) ? streamedChange : reference ? (price / reference.close - 1) * 100 : 0;
-  $('price').textContent = `$${fmt(price)}`; $('chartPrice').textContent = fmt(liveCandle?.close || last.close); $('chartRange').textContent = liveCandle ? '1H · gồm nến đang chạy' : '1H · 120 nến đã đóng'; $('change').textContent = `${change >= 0 ? '+' : ''}${fmt(change)}%`; $('change').style.color = change >= 0 ? '#64d6ae' : '#ed8998';
+  $('price').textContent = `$${fmt(price)}`; $('chartPrice').textContent = fmt(liveCandle?.close || last.close); $('chartRange').textContent = liveCandle ? '5m · gồm nến đang chạy' : '5m · 120 nến đã đóng'; $('change').textContent = `${change >= 0 ? '+' : ''}${fmt(change)}%`; $('change').style.color = change >= 0 ? '#64d6ae' : '#ed8998';
   const previous = points.at(-2), signal = previous.sma20 <= previous.sma50 && last.sma20 > last.sma50 ? 'BUY' : previous.sma20 >= previous.sma50 && last.sma20 < last.sma50 ? 'SELL' : 'HOLD';
   $('signal').textContent = signal; $('signalDetail').textContent = signal === 'HOLD' ? 'Chưa có giao cắt' : signal === 'BUY' ? (mode === 'futures_demo' ? 'Mở Long' : 'Mua BTC') : (mode === 'futures_demo' ? 'Đóng Long' : 'Bán BTC'); $('signalDetail').style.color = signal === 'BUY' ? '#64d6ae' : signal === 'SELL' ? '#ed8998' : '#e8edf5';
   $('sma20').textContent = fmt(last.sma20); $('sma50').textContent = fmt(last.sma50);

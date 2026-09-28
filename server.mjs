@@ -34,7 +34,7 @@ async function state(mode) {
 async function market(mode = autoMode) {
   const apiBase = mode === 'real' ? realBase : base;
   const apiPrefix = mode === 'real' ? '/fapi/v1' : prefix;
-  const response = await fetch(`${apiBase}${apiPrefix}/klines?symbol=BTCUSDT&interval=1h&limit=121`, { signal: AbortSignal.timeout(12000) });
+  const response = await fetch(`${apiBase}${apiPrefix}/klines?symbol=BTCUSDT&interval=5m&limit=121`, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Market data HTTP ${response.status}`);
   const rows = (await response.json()).slice(0, -1);
   const closes = rows.map(row => Number(row[4]));
@@ -49,7 +49,7 @@ async function market(mode = autoMode) {
 async function currentCandle(mode = autoMode) {
   const apiBase = mode === 'real' ? realBase : base;
   const apiPrefix = mode === 'real' ? '/fapi/v1' : prefix;
-  const response = await fetch(`${apiBase}${apiPrefix}/klines?symbol=BTCUSDT&interval=1h&limit=2`, { signal: AbortSignal.timeout(12000) });
+  const response = await fetch(`${apiBase}${apiPrefix}/klines?symbol=BTCUSDT&interval=5m&limit=2`, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Current candle HTTP ${response.status}`);
   const row = (await response.json()).at(-1);
   return { time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]) };
@@ -139,7 +139,7 @@ function startRealAutomation() {
   let delay = 1000;
   const connect = () => {
     realAutomation.socket = 'connecting';
-    const connection = new WebSocket('wss://fstream.binance.com/ws/btcusdt@kline_1h');
+    const connection = new WebSocket('wss://fstream.binance.com/ws/btcusdt@kline_5m');
     connection.addEventListener('open', () => { realAutomation.socket = 'connected'; delay = 1000; });
     connection.addEventListener('message', event => {
       try { const item = JSON.parse(event.data); if (item.k?.x === true) runRealAutomation('candle_close'); }
@@ -200,7 +200,7 @@ async function startAutomation() {
   let delay = 1000;
   const connect = () => {
     automation.socket = 'connecting';
-    const connection = new WebSocket(autoMode === 'futures_demo' ? 'wss://fstream.binancefuture.com/ws/btcusdt@kline_1h' : 'wss://stream.testnet.binance.vision/ws/btcusdt@kline_1h');
+    const connection = new WebSocket(autoMode === 'futures_demo' ? 'wss://fstream.binancefuture.com/ws/btcusdt@kline_5m' : 'wss://stream.testnet.binance.vision/ws/btcusdt@kline_5m');
     connection.addEventListener('open', () => { automation.socket = 'connected'; delay = 1000; });
     connection.addEventListener('message', event => {
       try { const item = JSON.parse(event.data); if (item.k?.x === true) runAutomation('candle_close'); }

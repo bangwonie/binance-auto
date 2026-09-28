@@ -75,7 +75,7 @@ def save(state):
 
 
 def signal():
-    rows = api("GET", "/fapi/v1/klines", {"symbol": SYMBOL, "interval": "1h", "limit": 52})[:-1]
+    rows = api("GET", "/fapi/v1/klines", {"symbol": SYMBOL, "interval": "5m", "limit": 52})[:-1]
     if len(rows) < 51:
         raise RuntimeError("Not enough closed Futures Real candles")
     closes = [D(row[4]) for row in rows]
@@ -283,7 +283,7 @@ def run():
         return
     event = {"time": int(time.time() * 1000), "candle": candle, "signal": side or "HOLD", "price": str(price), "action": "HOLD", "quantity": "0"}
     if side == "BUY" and amount == 0:
-        if int(time.time() * 1000) - (int(candle) + 3600000) > 120000:
+        if int(time.time() * 1000) - (int(candle) + 300000) > 120000:
             event["action"] = "SKIPPED"
             print("Skipped stale Real entry signal")
             state["last_candle"] = candle
