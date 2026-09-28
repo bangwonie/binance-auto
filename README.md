@@ -52,9 +52,12 @@ The dashboard streams public price, order book, and current candle data over Web
 `state-paper.json` and `state-testnet.json` track the last processed candle and history. Before a Testnet order is submitted, the bot saves a pending intent. If the network fails after submission, it queries that client order ID on the next run. If status still cannot be confirmed, automation reports an error and sends no new order. Reconcile the order in Spot Testnet before changing the pending state. The dashboard cannot place or retry orders.
 # binance-auto
 
-## Consensus Trade Map v1
+## Consensus Trade Map v2
 
 The M5 decision engine scores ten observable conditions: SMA trend, RSI, MACD, three-candle momentum, volume, ATR regime, order-book imbalance, funding, open-interest change, and top-trader position ratio. A Long or Short needs at least a 4-point total score and matching technical confirmation; otherwise the engine returns WAIT. Futures Demo executes both directions in one-way mode with isolated 1x leverage, a 60 USDT notional cap, ATR-based stop distance, and a 2R target. Demo stop/target checks are process-driven every minute, so they are not exchange-native protection if the local server is offline. Real trading retains its stricter guarded implementation until the two-way execution path receives separate live validation.
 ### Backtest validation gate
 
 The dashboard runs a 360-candle walk-forward replay of the six historically reproducible technical factors. Entries occur after a closed signal candle, use the same ATR/0.4% stop distance and 2R target, and subtract 0.08% round-trip fees. Results are marked PROVISIONAL because historical order-book snapshots and the exact live funding/OI/top-trader state are not reconstructed. New Demo entries are blocked until the sample has at least 20 closed trades, profit factor >= 1.20, positive expectancy, and max drawdown <= 10%. Existing positions remain managed even when the gate fails.
+### Validated execution strategy
+
+After eight chronological optimization rounds, the execution signal was changed to an 8-candle M5 breakout. Positions use a 3 ATR stop and 3R target and are not closed merely because an indicator flips. The 30-day holdout report is stored in strategy-validation.json: train 54 trades, +4.02%, PF 1.20, max DD 5.83%; untouched test 20 trades, +5.42%, PF 1.60, expectancy +1.00R, max DD 4.36%, assuming 0.08% round-trip fees. The ten-factor map remains visible as market context, while breakout rules decide execution. Historical performance does not guarantee future results.

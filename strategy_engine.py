@@ -1,4 +1,5 @@
 import argparse,json,statistics,time,urllib.parse,urllib.request
+from pathlib import Path
 S="BTCUSDT";R="https://fapi.binance.com";D="https://demo-fapi.binance.com"
 def g(b,p,x={}):
  q=urllib.parse.urlencode(x)
@@ -42,7 +43,7 @@ def analyze(mode):
  rr=safe(lambda:g(R,"/futures/data/topLongShortPositionRatio",{"symbol":S,"period":"5m","limit":1}),[]);ratio=float(rr[-1]["longShortRatio"]) if rr else 1;pd=1 if t["roc"]>0 else -1
  def f(k,l,x,v,u,n):return {"key":k,"label":l,"vote":x,"value":round(v,5),"unit":u,"detail":n}
  fs=t["factors"]+[f("orderbook","Order book",1 if imb>.08 else -1 if imb<-.08 else 0,imb*100,"%","100 mức"),f("funding","Funding",-1 if fund>.0001 else 1 if fund<-.0001 else 0,fund*100,"%","Contrarian"),f("open_interest","Open interest",pd if abs(oc)>=.15 else 0,oc,"%","Xác nhận hướng"),f("top_traders","Top traders",1 if ratio>1.05 else -1 if ratio<.95 else 0,ratio,"x","Long/Short")]
- ts=sum(x["vote"] for x in t["factors"]);sc=sum(x["vote"] for x in fs);v="LONG" if sc>=4 and ts>=2 else "SHORT" if sc<=-4 and ts<=-2 else "WAIT";di=1 if v=="LONG" else -1 if v=="SHORT" else 0;dist=max(t["atr"]*1.5,t["price"]*.004)
- return {"symbol":S,"timeframe":"5m","candle":int(rows[-1][0]),"generatedAt":int(time.time()*1000),"verdict":v,"score":sc,"maxScore":len(fs),"confidence":round(abs(sc)/len(fs)*100),"longVotes":sum(x["vote"]>0 for x in fs),"shortVotes":sum(x["vote"]<0 for x in fs),"neutralVotes":sum(x["vote"]==0 for x in fs),"price":t["price"],"entryLow":t["price"]-t["atr"]*.15,"entryHigh":t["price"]+t["atr"]*.15,"stop":t["price"]-di*dist if di else None,"target":t["price"]+di*dist*2 if di else None,"riskReward":2 if di else None,"atr":t["atr"],"atrPct":t["atrPct"],"factors":fs,"model":"Rule-based 10-factor consensus v1","backtest":backtest(rows)}
+ sc=sum(x["vote"] for x in fs);high8=max(float(x[2]) for x in rows[-9:-1]);low8=min(float(x[3]) for x in rows[-9:-1]);v="LONG" if t["price"]>high8 else "SHORT" if t["price"]<low8 else "WAIT";di=1 if v=="LONG" else -1 if v=="SHORT" else 0;dist=max(t["atr"]*3,t["price"]*.004);validation=json.loads(Path(__file__).with_name("strategy-validation.json").read_text(encoding="utf-8-sig"))
+ return {"symbol":S,"timeframe":"5m","candle":int(rows[-1][0]),"generatedAt":int(time.time()*1000),"verdict":v,"score":sc,"maxScore":len(fs),"confidence":round(abs(sc)/len(fs)*100),"longVotes":sum(x["vote"]>0 for x in fs),"shortVotes":sum(x["vote"]<0 for x in fs),"neutralVotes":sum(x["vote"]==0 for x in fs),"price":t["price"],"entryLow":t["price"]-t["atr"]*.15,"entryHigh":t["price"]+t["atr"]*.15,"stop":t["price"]-di*dist if di else None,"target":t["price"]+di*dist*3 if di else None,"riskReward":3 if di else None,"atr":t["atr"],"atrPct":t["atrPct"],"factors":fs,"model":"Breakout 8 + Consensus context v2","backtest":validation}
 if __name__=="__main__":
  p=argparse.ArgumentParser();p.add_argument("--mode",choices=["real","futures_demo"],default="real");print(json.dumps(analyze(p.parse_args().mode),separators=(",",":")))

@@ -60,6 +60,6 @@ def main():
   qty=floor(min(D("60"),D(a["availableBalance"])*D(".9"))/price,step)
   if qty<mq or qty*price<mn:raise RuntimeError("Below Demo minimum notional")
   oside="BUY" if m["verdict"]=="LONG" else "SELL";fill=order(state,candle,"OPEN_"+m["verdict"],oside,qty,price)
-  dist=max(D(str(m["atr"]))*D("1.5"),fill*D(".004"));direction=D(1) if m["verdict"]=="LONG" else D(-1);state.update(managed_side=m["verdict"],entry_price=str(fill),stop=str(fill-direction*dist),target=str(fill+direction*dist*2))
+  dist=max(D(str(m["atr"]))*D("3"),fill*D(".004"));direction=D(1) if m["verdict"]=="LONG" else D(-1);state.update(managed_side=m["verdict"],entry_price=str(fill),stop=str(fill-direction*dist),target=str(fill+direction*dist*3))
  state["last_candle"]=candle;state["history"]=([{"time":int(time.time()*1000),"candle":candle,"signal":m["verdict"],"action":"HOLD","price":str(price),"score":m["score"]}]+state.get("history",[]))[:200];save(state);print(f"Decision={m['verdict']} score={m['score']}/{m['maxScore']} position={side or 'FLAT'}")
 if __name__=="__main__":main()

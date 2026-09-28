@@ -1,0 +1,48 @@
+﻿{
+    "status":  "PASSED",
+    "approved":  true,
+    "coverage":  "Exact breakout execution rules",
+    "candles":  8999,
+    "trainCandles":  6299,
+    "testCandles":  2700,
+    "searched":  1600,
+    "passed":  2,
+    "config":  {
+                   "fast":  8,
+                   "slow":  30,
+                   "rsi":  52,
+                   "momentumPct":  0.05,
+                   "scoreThreshold":  1,
+                   "stopAtr":  3.0,
+                   "riskReward":  3.0,
+                   "family":  "breakout"
+               },
+    "train":  {
+                  "trades":  54,
+                  "winRate":  37.03703703703704,
+                  "netReturn":  4.015341461773625,
+                  "profitFactor":  1.2020513207936026,
+                  "expectancyR":  0.48148148148148473,
+                  "maxDrawdown":  5.82948978304488
+              },
+    "test":  {
+                 "trades":  20,
+                 "winRate":  50.0,
+                 "netReturn":  5.417373584550456,
+                 "profitFactor":  1.5981913382162223,
+                 "expectancyR":  1.000000000000002,
+                 "maxDrawdown":  4.355342512671814
+             },
+    "feeRoundTripPct":  0.08,
+    "generatedAt":  1790561463520,
+    "gate":  "Train PF \u003e= 1.10 and positive; test \u003e=20 trades, PF \u003e=1.20, expectancy \u003e0R, net positive, DD \u003c=10%",
+    "note":  "Chronological 70/30 holdout. No parameter was selected on the test segment.",
+    "trades":  20,
+    "wins":  10,
+    "losses":  10,
+    "winRate":  50.0,
+    "netReturn":  5.417373584550456,
+    "profitFactor":  1.5981913382162223,
+    "expectancyR":  1.000000000000002,
+    "maxDrawdown":  4.355342512671814
+}
