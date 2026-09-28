@@ -61,3 +61,6 @@ The dashboard runs a 360-candle walk-forward replay of the six historically repr
 ### Validated execution strategy
 
 After eight chronological optimization rounds, the execution signal was changed to an 8-candle M5 breakout. Positions use a 3 ATR stop and 3R target and are not closed merely because an indicator flips. The 30-day holdout report is stored in strategy-validation.json: train 54 trades, +4.02%, PF 1.20, max DD 5.83%; untouched test 20 trades, +5.42%, PF 1.60, expectancy +1.00R, max DD 4.36%, assuming 0.08% round-trip fees. The ten-factor map remains visible as market context, while breakout rules decide execution. Historical performance does not guarantee future results.
+### Candlestick chart
+
+The dashboard renders the latest M5 OHLCV data as green/red candlesticks with wicks, volume bars, SMA20/50 overlays, a live-price guide, price/time axes, and an OHLCV hover readout. The running candle is updated from the Binance kline WebSocket and replaced by REST data after it closes.

@@ -38,7 +38,7 @@ function connectMarket() {
     }
     else if (packet.stream.endsWith('@kline_5m') && item.k) {
       if (item.k.x) { liveCandle = null; load(); }
-      else liveCandle = { time: Number(item.k.t), close: Number(item.k.c) };
+      else liveCandle = { time: Number(item.k.t), open: Number(item.k.o), high: Number(item.k.h), low: Number(item.k.l), close: Number(item.k.c), volume: Number(item.k.v) };
     }
     scheduleRender();
   });
@@ -114,14 +114,62 @@ function renderAutomation() {
 }
 function chartPoints() {
   if (!dashboard) return [];
-  const closed = dashboard.points;
+  const closed = dashboard.points.slice(-90);
   if (!liveCandle || liveCandle.time <= closed.at(-1).time || !Number.isFinite(liveCandle.close)) return closed;
   const closes = closed.map(point => point.close);
   const average = count => (closes.slice(-(count - 1)).reduce((sum, value) => sum + value, 0) + liveCandle.close) / count;
   return [...closed, { ...liveCandle, sma20: average(20), sma50: average(50) }];
 }
-function drawChart() { if (!dashboard) return; const canvas = $('chart'), bounds = canvas.getBoundingClientRect(), ratio = devicePixelRatio || 1; canvas.width = Math.round(bounds.width * ratio); canvas.height = Math.round(bounds.height * ratio); const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio); const w = bounds.width, h = bounds.height, pts = chartPoints(), pad = { l: 10, r: 55, t: 15, b: 17 }; const values = pts.flatMap(p => [p.close, p.sma20, p.sma50]).filter(v => v != null), low = Math.min(...values), high = Math.max(...values), margin = (high - low || 1) * .1, min = low - margin, max = high + margin; const x = i => pad.l + (w - pad.l - pad.r) * i / (pts.length - 1), y = v => pad.t + (max - v) * (h - pad.t - pad.b) / (max - min); ctx.font = '10px Manrope, sans-serif'; for (let i = 0; i < 5; i++) { const yy = pad.t + i * (h - pad.t - pad.b) / 4; ctx.strokeStyle = '#2a394b'; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(w - pad.r + 4, yy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#728198'; ctx.fillText(fmt(max - (max - min) * i / 4, 0), w - pad.r + 9, yy + 3); } function line(key, color, width) { ctx.beginPath(); let started = false; pts.forEach((p, i) => { if (p[key] == null) return; started ? ctx.lineTo(x(i), y(p[key])) : ctx.moveTo(x(i), y(p[key])); started = true; }); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); } const fill = ctx.createLinearGradient(0, 0, 0, h); fill.addColorStop(0, '#f5ad5833'); fill.addColorStop(1, '#f5ad5800'); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(x(i), y(p.close)) : ctx.moveTo(x(i), y(p.close))); ctx.lineTo(x(pts.length - 1), h - pad.b); ctx.lineTo(x(0), h - pad.b); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); line('sma50', '#7994ea', 1.4); line('sma20', '#68d7b6', 1.4); line('close', '#f3ac57', 2); if (hover >= 0 && hover < pts.length) { const p = pts[hover]; ctx.strokeStyle = '#8b9aaf'; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(x(hover), pad.t); ctx.lineTo(x(hover), h - pad.b); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(x(hover), y(p.close), 4, 0, Math.PI * 2); ctx.fillStyle = '#f3ac57'; ctx.fill(); const label = `${time(p.time)}  $${fmt(p.close)}`, tx = Math.min(x(hover) + 8, w - 176); ctx.fillStyle = '#28374b'; ctx.fillRect(tx, 10, 170, 24); ctx.fillStyle = '#e6edf6'; ctx.fillText(label, tx + 7, 26); } }
-$('chart').addEventListener('mousemove', event => { if (!dashboard) return; const rect = $('chart').getBoundingClientRect(); hover = Math.max(0, Math.min(chartPoints().length - 1, Math.round((event.clientX - rect.left - 10) / (rect.width - 65) * (chartPoints().length - 1)))); drawChart(); }); $('chart').addEventListener('mouseleave', () => { hover = -1; drawChart(); }); window.addEventListener('resize', drawChart);
+function drawChart() {
+  if (!dashboard) return;
+  const canvas = $('chart'), bounds = canvas.getBoundingClientRect(), ratio = devicePixelRatio || 1;
+  canvas.width = Math.round(bounds.width * ratio); canvas.height = Math.round(bounds.height * ratio);
+  const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+  const w = bounds.width, h = bounds.height, pts = chartPoints();
+  if (!pts.length) return;
+  const pad = { l: 12, r: 68, t: 24, b: 22 }, volumeHeight = 66;
+  const priceBottom = h - pad.b - volumeHeight, plotWidth = w - pad.l - pad.r;
+  const values = pts.flatMap(p => [p.low, p.high, p.sma20, p.sma50]).filter(Number.isFinite);
+  const rawLow = Math.min(...values), rawHigh = Math.max(...values), margin = (rawHigh - rawLow || 1) * .07;
+  const min = rawLow - margin, max = rawHigh + margin;
+  const step = plotWidth / pts.length, candleWidth = Math.max(2, Math.min(9, step * .62));
+  const x = i => pad.l + step * i + step / 2;
+  const y = value => pad.t + (max - value) * (priceBottom - pad.t) / (max - min);
+  const maxVolume = Math.max(...pts.map(p => Number(p.volume) || 0), 1);
+  ctx.font = '10px Manrope, sans-serif';
+  for (let i = 0; i < 6; i++) {
+    const yy = pad.t + i * (priceBottom - pad.t) / 5;
+    ctx.strokeStyle = '#243246'; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(w - pad.r, yy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#718197'; ctx.fillText(fmt(max - (max - min) * i / 5, 1), w - pad.r + 8, yy + 3);
+  }
+  for (let i = 0; i < pts.length; i += Math.max(1, Math.floor(pts.length / 6))) {
+    ctx.fillStyle = '#65758a'; ctx.fillText(new Date(pts[i].time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }), Math.max(pad.l, x(i) - 18), h - 5);
+  }
+  pts.forEach((p, i) => {
+    const open = Number(p.open), close = Number(p.close), high = Number(p.high), low = Number(p.low), volume = Number(p.volume) || 0;
+    const up = close >= open, color = up ? '#26a69a' : '#ef5350';
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x(i), y(high)); ctx.lineTo(x(i), y(low)); ctx.stroke();
+    const top = Math.min(y(open), y(close)), bodyHeight = Math.max(1.5, Math.abs(y(open) - y(close)));
+    ctx.fillStyle = color; ctx.fillRect(x(i) - candleWidth / 2, top, candleWidth, bodyHeight);
+    const vh = volume / maxVolume * (volumeHeight - 12);
+    ctx.globalAlpha = .35; ctx.fillRect(x(i) - candleWidth / 2, h - pad.b - vh, candleWidth, vh); ctx.globalAlpha = 1;
+  });
+  function line(key, color) {
+    ctx.beginPath(); let started = false;
+    pts.forEach((p, i) => { if (!Number.isFinite(p[key])) return; if (started) ctx.lineTo(x(i), y(p[key])); else ctx.moveTo(x(i), y(p[key])); started = true; });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.25; ctx.stroke();
+  }
+  line('sma50', '#7d96e8'); line('sma20', '#68d7b6');
+  const livePrice = Number(pts.at(-1).close);
+  ctx.strokeStyle = '#aeb9c7'; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(pad.l, y(livePrice)); ctx.lineTo(w - pad.r, y(livePrice)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#34445a'; ctx.fillRect(w - pad.r + 3, y(livePrice) - 9, pad.r - 4, 18); ctx.fillStyle = '#eef3f8'; ctx.fillText(fmt(livePrice, 1), w - pad.r + 7, y(livePrice) + 3);
+  if (hover >= 0 && hover < pts.length) {
+    const p = pts[hover];
+    ctx.strokeStyle = '#8b9aaf'; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(x(hover), pad.t); ctx.lineTo(x(hover), h - pad.b); ctx.stroke(); ctx.setLineDash([]);
+    const label = time(p.time) + '  O ' + fmt(p.open) + '  H ' + fmt(p.high) + '  L ' + fmt(p.low) + '  C ' + fmt(p.close) + '  V ' + fmt(p.volume, 3);
+    ctx.fillStyle = '#1b2738'; ctx.fillRect(pad.l, 3, Math.min(w - pad.l - 4, 520), 19); ctx.fillStyle = '#e6edf6'; ctx.fillText(label, pad.l + 6, 16);
+  }
+}$('chart').addEventListener('mousemove', event => { if (!dashboard) return; const rect = $('chart').getBoundingClientRect(); hover = Math.max(0, Math.min(chartPoints().length - 1, Math.round((event.clientX - rect.left - 10) / (rect.width - 65) * (chartPoints().length - 1)))); drawChart(); }); $('chart').addEventListener('mouseleave', () => { hover = -1; drawChart(); }); window.addEventListener('resize', drawChart);
 $('refreshBtn').addEventListener('click', load);
 setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('vi-VN'); }, 1000);
 setInterval(refreshAccount, 5000);
