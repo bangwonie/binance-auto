@@ -64,3 +64,6 @@ After eight chronological optimization rounds, the execution signal was changed 
 ### Candlestick chart
 
 The dashboard renders the latest M5 OHLCV data as green/red candlesticks with wicks, volume bars, SMA20/50 overlays, a live-price guide, price/time axes, and an OHLCV hover readout. The running candle is updated from the Binance kline WebSocket and replaced by REST data after it closes.
+### 100 USDT capital validation
+
+capital_backtest.py replays BTCUSDT with the exchange minimum quantity of 0.001 BTC, isolated 1x, 0.04% taker fee per side, 0.01% adverse slippage per fill, and a 2 USDT daily-loss entry lock. The 90-day report is stored in capital-validation.json. Consensus v2 ended at 115.49 USDT over the full sample with PF 1.27 and 4.58% max drawdown. The chronological test segment ended at 102.00 USDT over 56 trades with PF 1.09 and 5.17% max drawdown. Real entry remains unapproved because out-of-sample PF is below the 1.20 gate.
