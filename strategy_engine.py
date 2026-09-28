@@ -19,6 +19,22 @@ def tech(rows):
  def f(k,l,x,val,u,n):return {"key":k,"label":l,"vote":x,"value":round(val,5),"unit":u,"detail":n}
  fs=[f("trend","Xu hướng SMA",1 if s20>s50 else -1,(s20-s50)/p*100,"%","SMA20 so với SMA50"),f("rsi","RSI 14",1 if rsi>=55 else -1 if rsi<=45 else 0,rsi,"","45–55 là trung tính"),f("macd","MACD",1 if mh>0 else -1,mh,"","Histogram"),f("momentum","Động lượng",1 if roc>.12 else -1 if roc<-.12 else 0,roc,"%","3 nến"),f("volume","Volume",cd if z>=.5 else 0,z,"σ","So với 20 nến"),f("volatility","Biến động",cd if .12<=ap<=1.5 else 0,ap,"%","ATR14")]
  return {"price":p,"atr":atr,"atrPct":ap,"roc":roc,"factors":fs}
+def backtest(rows):
+ start=max(60,len(rows)-360);eq=peak=1.0;dd=0.0;pos=0;entry=stop=target=0.0;outcomes=[];entry_time=None
+ for i in range(start,len(rows)-1):
+  t=tech(rows[:i+1]);score=sum(x["vote"] for x in t["factors"]);signal=1 if score>=3 else -1 if score<=-3 else 0
+  nxt=rows[i+1];op,hi,lo,cl=map(float,(nxt[1],nxt[2],nxt[3],nxt[4]));exit_price=None;reason=None
+  if pos:
+   if (pos>0 and lo<=stop) or (pos<0 and hi>=stop):exit_price=stop;reason="STOP"
+   elif (pos>0 and hi>=target) or (pos<0 and lo<=target):exit_price=target;reason="TARGET"
+   elif signal==-pos:exit_price=op;reason="FLIP"
+   if exit_price is not None:
+    risk=abs(entry-stop);gross=pos*(exit_price-entry)/entry;net=gross-.0008;r_multiple=pos*(exit_price-entry)/risk if risk else 0
+    eq*=1+net;outcomes.append({"return":net,"r":r_multiple,"reason":reason,"entryTime":entry_time,"exitTime":int(nxt[0])});pos=0;peak=max(peak,eq);dd=max(dd,(peak-eq)/peak)
+  if not pos and signal:
+   pos=signal;entry=cl;distance=max(t["atr"]*1.5,cl*.004);stop=entry-pos*distance;target=entry+pos*distance*2;entry_time=int(nxt[0])
+ wins=[x for x in outcomes if x["return"]>0];loss=[x for x in outcomes if x["return"]<=0];gw=sum(x["return"] for x in wins);gl=abs(sum(x["return"] for x in loss))
+ return {"status":"PROVISIONAL","coverage":"6/10","candles":len(rows)-start,"from":int(rows[start][0]),"to":int(rows[-1][0]),"trades":len(outcomes),"wins":len(wins),"losses":len(loss),"winRate":round(len(wins)/len(outcomes)*100,1) if outcomes else None,"netReturn":round((eq-1)*100,2),"profitFactor":round(gw/gl,2) if gl else None,"expectancyR":round(sum(x["r"] for x in outcomes)/len(outcomes),2) if outcomes else None,"maxDrawdown":round(dd*100,2),"feeRoundTripPct":0.08,"approved":len(outcomes)>=20 and gl>0 and gw/gl>=1.2 and sum(x["r"] for x in outcomes)/len(outcomes)>0 and dd<=0.10,"gate":"Cần ≥20 lệnh, PF ≥1.20, expectancy >0R, max DD ≤10%","note":"Walk-forward 6 điều kiện kỹ thuật; không hồi dựng order book, funding, OI và top-trader ratio."}
 def analyze(mode):
  b=D if mode=="futures_demo" else R;rows=g(b,"/fapi/v1/klines",{"symbol":S,"interval":"5m","limit":501})[:-1];t=tech(rows)
  dep=safe(lambda:g(b,"/fapi/v1/depth",{"symbol":S,"limit":100}),{"bids":[],"asks":[]});bv=sum(float(p)*float(q) for p,q in dep["bids"]);av=sum(float(p)*float(q) for p,q in dep["asks"]);imb=(bv-av)/(bv+av) if bv+av else 0
@@ -27,6 +43,6 @@ def analyze(mode):
  def f(k,l,x,v,u,n):return {"key":k,"label":l,"vote":x,"value":round(v,5),"unit":u,"detail":n}
  fs=t["factors"]+[f("orderbook","Order book",1 if imb>.08 else -1 if imb<-.08 else 0,imb*100,"%","100 mức"),f("funding","Funding",-1 if fund>.0001 else 1 if fund<-.0001 else 0,fund*100,"%","Contrarian"),f("open_interest","Open interest",pd if abs(oc)>=.15 else 0,oc,"%","Xác nhận hướng"),f("top_traders","Top traders",1 if ratio>1.05 else -1 if ratio<.95 else 0,ratio,"x","Long/Short")]
  ts=sum(x["vote"] for x in t["factors"]);sc=sum(x["vote"] for x in fs);v="LONG" if sc>=4 and ts>=2 else "SHORT" if sc<=-4 and ts<=-2 else "WAIT";di=1 if v=="LONG" else -1 if v=="SHORT" else 0;dist=max(t["atr"]*1.5,t["price"]*.004)
- return {"symbol":S,"timeframe":"5m","candle":int(rows[-1][0]),"generatedAt":int(time.time()*1000),"verdict":v,"score":sc,"maxScore":len(fs),"confidence":round(abs(sc)/len(fs)*100),"longVotes":sum(x["vote"]>0 for x in fs),"shortVotes":sum(x["vote"]<0 for x in fs),"neutralVotes":sum(x["vote"]==0 for x in fs),"price":t["price"],"entryLow":t["price"]-t["atr"]*.15,"entryHigh":t["price"]+t["atr"]*.15,"stop":t["price"]-di*dist if di else None,"target":t["price"]+di*dist*2 if di else None,"riskReward":2 if di else None,"atr":t["atr"],"atrPct":t["atrPct"],"factors":fs,"model":"Rule-based 10-factor consensus v1"}
+ return {"symbol":S,"timeframe":"5m","candle":int(rows[-1][0]),"generatedAt":int(time.time()*1000),"verdict":v,"score":sc,"maxScore":len(fs),"confidence":round(abs(sc)/len(fs)*100),"longVotes":sum(x["vote"]>0 for x in fs),"shortVotes":sum(x["vote"]<0 for x in fs),"neutralVotes":sum(x["vote"]==0 for x in fs),"price":t["price"],"entryLow":t["price"]-t["atr"]*.15,"entryHigh":t["price"]+t["atr"]*.15,"stop":t["price"]-di*dist if di else None,"target":t["price"]+di*dist*2 if di else None,"riskReward":2 if di else None,"atr":t["atr"],"atrPct":t["atrPct"],"factors":fs,"model":"Rule-based 10-factor consensus v1","backtest":backtest(rows)}
 if __name__=="__main__":
  p=argparse.ArgumentParser();p.add_argument("--mode",choices=["real","futures_demo"],default="real");print(json.dumps(analyze(p.parse_args().mode),separators=(",",":")))

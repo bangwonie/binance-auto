@@ -50,6 +50,8 @@ def main():
  if reason:
   close_side="SELL" if side=="LONG" else "BUY";qty=floor(abs(amt),step);entry=D(str(state["entry_price"]));fill=order(state,candle,"CLOSE_"+side,close_side,qty,price,True,reason);pnl=(fill-entry)*qty*(D(1) if side=="LONG" else D(-1));state["history"][0]["pnl"]=str(pnl);state["managed_side"]=None;state["last_candle"]=candle;save(state);print(f"Closed {side} pnl={pnl} reason={reason}");return
  if state.get("last_candle")==candle:print("Already processed this candle");return
+ if not side and m["verdict"] in ("LONG","SHORT") and not m["backtest"]["approved"]:
+  state["last_candle"]=candle;state["history"]=([{"time":int(time.time()*1000),"candle":candle,"signal":m["verdict"],"action":"SKIPPED_VALIDATION","price":str(price),"score":m["score"],"reason":m["backtest"]["gate"]}]+state.get("history",[]))[:200];save(state);print("Entry blocked by backtest validation gate");return
  if not side and m["verdict"] in ("LONG","SHORT"):
   if int(time.time()*1000)-(int(candle)+300000)>120000:raise RuntimeError("Stale entry signal")
   if api("GET","/fapi/v1/openOrders",{"symbol":S},signed=True):raise RuntimeError("Open Demo orders found")
