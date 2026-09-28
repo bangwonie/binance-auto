@@ -1,0 +1,14 @@
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V4 */
+:root {
+  --color-real: #e78387;
+  --color-real-soft: #39262e;
+  --color-real-rule: #7a404e;
+  --color-demo: #f0b36c;
+  --color-nav-paper: #172334;
+  --color-nav-rule: #36465b;
+  --color-nav-text: #aab8c9;
+  --color-nav-active: #f0f4fa;
+  --color-latency: #92a7b9;
+  --font-ui: Manrope, 'DM Sans', Arial, sans-serif;
+  --radius-nav: 4px;
+}

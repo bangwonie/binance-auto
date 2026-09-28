@@ -1,0 +1,7 @@
+state-*.json
+baseline-testnet.json
+baseline-futures_demo.json
+*.tmp
+*.lock
+__pycache__/
+.env

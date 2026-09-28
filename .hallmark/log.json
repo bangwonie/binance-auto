@@ -1,0 +1,9 @@
+[
+  {
+    "date": "2026-09-27",
+    "macrostructure": "Trading desk with separate Demo and Real routes",
+    "theme": "existing dark trading desk",
+    "enrichment": "none",
+    "brief": "Separate Demo strategy monitoring and Real realtime Futures monitoring"
+  }
+]
